@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>barcode scanner wasm</title>
+<script src="a.out.js"></script>
+</head>
+
+<!-- We create some DOM elements necessary for grabbing webcam frames -->
+<body>
+	
+    <button id="light"  style="font-size:30px">light</button>
+    <button id="sound" style="font-size:30px">sound</button>
+	<div id="barcontainer" style="position:relative; border:5px solid #000; height:500px;width:500px">
+		<img src="barcodelayout.png" style="position:absolute; display:block; left:0; top:0" />
+		<canvas id="canvas2" style="position:absolute; "> </canvas>
+		<video id="live" width="100%" height="100%" autoplay zoom="00"> </video>
+	</div>
+
+</body>
+
+<!-- Import the javascript bundle produced by Emscripten-->
+
+<!-- The main 'application code' tying it all together -->
+
+<script src="index.js"></script>
+
+</html>

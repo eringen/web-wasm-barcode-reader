@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title></title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script src='https://unpkg.com/tesseract.js@v2.0.0-alpha.10/dist/tesseract.min.js'></script>
+
+</head>
+
+<body>
+  <table style="text-align: center">
+    <tr>
+      <td><b><u>Video Input</u></b></td>
+      <td><b><u>Snapshot</u></b></td>
+    </tr>
+    <tr>
+      <td>
+        <video id="videoele" style="width: 400px; height: 300px;" autoplay playsinline></video>
+      </td>
+      <td style="min-width: 400px;">
+        <img id="imageele" src="" style="max-width: 400px; max-height: 200px;">
+      </td>
+    </tr>
+    <tr>
+      <td><b><u>Status</u></b></td>
+      <td><b><u>Output</u></b></td>
+    </tr>
+    <tr style="height: 100px;">
+      <td>
+        <div id="ocr_status"> </div>
+      </td>
+      <td style="text-align: justify;">
+        <div id="ocr_results"> </div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2">
+        <button style="padding: 1em" type="button" id="btnele"><b>Run OCR</b></button>
+      </td>
+      <div id="canvass">
+      </div>
+    </tr>
+  </table>
+
+  <canvas id="canvasele" style="display:none;"></canvas>
+
+  <script>
+    const constraints = {
+      video: {'facingMode': 'environment', width: {min: 1280}, height: {min: 720}}
+    };
+    const video = document.getElementById('videoele');
+    const img = document.getElementById('imageele');
+    const canvas = document.createElement('canvas');
+    const screenshotButton = document.getElementById('btnele');
+
+    function hasGetUserMedia() {
+      return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    if (hasGetUserMedia()) {
+      // Good to go!
+      navigator.mediaDevices.getUserMedia(constraints).then(gotStream)//.catch(handleError);
+
+    } else {
+      alert('getUserMedia() is not supported by your browser');
+    }
+
+    function gotStream(stream) {
+      window.stream = stream; // make stream available to console
+      video.srcObject = stream;
+    }
+
+
+    function handleError(error) {
+      console.log(error);
+    }
+
+    screenshotButton.onclick = video.onclick = function () {
+      document.getElementById("ocr_results").innerText = "";
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+
+      //const grayData = []
+      //const d = video.data;
+      //for (var i = 0, j = 0; i < d.length; i += 4, j++) {
+      //  grayData[j] = (d[i] * 66 + d[i + 1] * 129 + d[i + 2] * 25 + 4096) >> 8;
+      //}
+
+
+      canvas.getContext('2d').drawImage(video, 0, 0);
+
+
+
+      // Other browsers will fall back to image/png
+      img.src = canvas.toDataURL('image/png');
+      runOCR(img.src);
+    };
+
+    function runOCR(url) {
+
+      const worker = new Tesseract.TesseractWorker();
+      worker.recognize(url)
+        .then(function (result) {
+
+          let a = result.text.replace(/(\r\n|\n|\r)/gm, "");
+          a = a.replace(/\s/g, '');
+          a = a.replace(/\(/g, '<');
+
+          let b = extractMRZData(a);
+          console.log(a)
+          console.log(b)
+          console.log('--------------------------------------------------')
+
+          if (b) {
+            let check = mrzChecksum(b)
+            console.log('------', check, '------')
+
+          }
+
+          document.getElementById("ocr_results")
+            .innerText = result.text; //result.text;
+        }).progress(function (result) {
+          document.getElementById("ocr_status")
+            .innerText = result["status"] + " (" +
+            (result["progress"] * 100) + "%)";
+        });
+    }
+
+    function extractMRZData(input) {
+      // Regular expression to match the string that starts with "P<" and ends with "<XX" where XX are digits
+      const regex = /P<.*?<\d{2}/;
+
+      // Use the regex to search for a match in the input string
+      const match = input.match(regex);
+
+      // If a match is found, return the matched part of the string
+      if (match) {
+        return match[0];
+      } else {
+        return; // Return null if no match is found
+      }
+    }
+
+
+    function mrzChecksum(input) {
+      const weights = [7, 3, 1]; // Weights used in MRZ checksum calculation
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<';
+
+      let checksum = 0;
+
+      for (let i = 0; i < input.length; i++) {
+        let char = input[i];
+        let value;
+
+        // If the character is a digit, its value is its numeric value
+        if (char >= '0' && char <= '9') {
+          value = parseInt(char, 10);
+        }
+        // If the character is a letter, its value is the position in the alphabet (A=10, B=11, etc.)
+        else if (char >= 'A' && char <= 'Z') {
+          value = char.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+        }
+        // If the character is '<', its value is 0
+        else if (char === '<') {
+          value = 0;
+        }
+        // Otherwise, if the character is invalid, throw an error
+        else {
+          return 'Error';
+        }
+
+        // Multiply the value by the corresponding weight and add to the checksum
+        checksum += value * weights[i % 3];
+      }
+
+      // The checksum is the remainder of the sum divided by 10
+      return checksum % 10;
+    }
+
+  </script>
+</body>
+
+</html>
