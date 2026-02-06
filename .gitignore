@@ -16,6 +16,7 @@ npm-debug.log*
 # Build artifacts
 *.o
 *.bc
+dist/
 
 # Environment
 .env
