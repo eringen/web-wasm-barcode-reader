@@ -22,8 +22,11 @@ type ProcessResultCallback = (symbol: string, data: string, polygon: Int32Array)
 interface EmscriptenModule {
   onRuntimeInitialized: (() => void) | null;
 
-  /** Wrap a C function for JS-side calls. */
-  cwrap(
+  /**
+   * Wrap a C function for JS-side calls.
+   * Marked optional because it's not available until after runtime init.
+   */
+  cwrap?(
     funcName: string,
     returnType: '' | 'number' | 'string' | null,
     argTypes: Array<'number' | 'string'>,

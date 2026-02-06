@@ -250,11 +250,14 @@ export class BarcodeScanner {
       const init = (): void => {
         clearTimeout(timeout);
         try {
+          const cwrap = Module.cwrap;
+          if (!cwrap) throw new Error('Module.cwrap not available after runtime init');
+
           // cwrap returns a callable; we cast to the known signatures.
           this.wasmApi = {
-            scan_image: Module.cwrap('scan_image', '', ['number', 'number', 'number']) as WasmApi['scan_image'],
-            create_buffer: Module.cwrap('create_buffer', 'number', ['number', 'number']) as WasmApi['create_buffer'],
-            destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']) as WasmApi['destroy_buffer'],
+            scan_image: cwrap('scan_image', '', ['number', 'number', 'number']) as WasmApi['scan_image'],
+            create_buffer: cwrap('create_buffer', 'number', ['number', 'number']) as WasmApi['create_buffer'],
+            destroy_buffer: cwrap('destroy_buffer', '', ['number']) as WasmApi['destroy_buffer'],
           };
           resolve();
         } catch (e) {
