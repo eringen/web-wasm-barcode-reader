@@ -2,6 +2,8 @@
 
 A browser-based barcode scanner using the [ZBar](https://zbar.sourceforge.net/) library compiled to WebAssembly via Emscripten.
 
+Safari and iOS browsers lack support for the [Barcode Detection API](https://developer.mozilla.org/en-US/docs/Web/API/Barcode_Detection_API), making native-like barcode scanning impossible with standard web APIs. This project fills that gap by running ZBar through WebAssembly, delivering near-native barcode reading performance on iOS devices and any browser without built-in barcode support.
+
 Based on the blog post: [Using the ZBar barcode scanning suite in the browser with WebAssembly](https://barkeywolf.consulting/posts/barcode-scanner-webassembly/).
 
 ## How It Works
