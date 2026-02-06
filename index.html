@@ -2,28 +2,57 @@
 <html lang="en">
 
 <head>
-	<meta charset="UTF-8">
-	<title>barcode scanner wasm</title>
-<script src="a.out.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barcode Scanner (WASM)</title>
+  <!-- Emscripten glue loaded as a classic script so Module lands on window -->
+  <script src="/a.out.js"></script>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #111;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .controls button {
+      font-size: 18px;
+      padding: 6px 16px;
+      cursor: pointer;
+    }
+    #scanner-mount {
+      position: relative;
+      width: 500px;
+      height: 500px;
+      border: 3px solid #333;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+    #scan-result {
+      margin-top: 12px;
+      font-size: 20px;
+      min-height: 1.5em;
+    }
+  </style>
 </head>
 
-<!-- We create some DOM elements necessary for grabbing webcam frames -->
 <body>
-	
-    <button id="light"  style="font-size:30px">light</button>
-    <button id="sound" style="font-size:30px">sound</button>
-	<div id="barcontainer" style="position:relative; border:5px solid #000; height:500px;width:500px">
-		<img src="barcodelayout.png" style="position:absolute; display:block; left:0; top:0" />
-		<canvas id="canvas2" style="position:absolute; "> </canvas>
-		<video id="live" width="100%" height="100%" autoplay zoom="00"> </video>
-	</div>
+  <div class="controls">
+    <button id="light">torch: OFF</button>
+  </div>
+  <div id="scanner-mount"></div>
+  <div id="scan-result"></div>
 
+  <script type="module" src="/src/main.ts"></script>
 </body>
-
-<!-- Import the javascript bundle produced by Emscripten-->
-
-<!-- The main 'application code' tying it all together -->
-
-<script src="index.js"></script>
 
 </html>
