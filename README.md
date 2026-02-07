@@ -11,7 +11,7 @@ My take:  [Barcode Scanning on iOS: The Missing Web API and a WebAssembly Soluti
 NPM: [https://www.npmjs.com/package/web-wasm-barcode-reader](https://www.npmjs.com/package/web-wasm-barcode-reader)
 
 ```bash
-**npm i web-wasm-barcode-reader**
+npm i web-wasm-barcode-reader
 ```
 
 
