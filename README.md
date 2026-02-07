@@ -9,8 +9,10 @@ Based on the blog post: [Using the ZBar barcode scanning suite in the browser wi
 My take:  [Barcode Scanning on iOS: The Missing Web API and a WebAssembly Solution]([https://barkeywolf.consulting/posts/barcode-scanner-webassembly/](https://eringen.com/blog/barcode-scanning-on-ios-the-missing-web-api-and-a-webassembly-solution)).
 
 NPM: [https://www.npmjs.com/package/web-wasm-barcode-reader](https://www.npmjs.com/package/web-wasm-barcode-reader)
-**npm i web-wasm-barcode-reader**
 
+```bash
+**npm i web-wasm-barcode-reader**
+```
 
 
 
