@@ -29,6 +29,11 @@
       padding: 6px 16px;
       cursor: pointer;
     }
+    .scanner-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
     #scanner-mount {
       position: relative;
       width: 500px;
@@ -36,6 +41,24 @@
       border: 3px solid #333;
       overflow: hidden;
       border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .preview-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .preview-panel h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #888;
+    }
+    #preview-canvas {
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #000;
+      /* CSS scales it down; actual resolution set by JS */
+      width: 300px;
     }
     #scan-result {
       margin-top: 12px;
@@ -49,7 +72,13 @@
   <div class="controls">
     <button id="light">torch: OFF</button>
   </div>
-  <div id="scanner-mount"></div>
+  <div class="scanner-row">
+    <div id="scanner-mount"></div>
+    <div class="preview-panel">
+      <h3>rotation passes</h3>
+      <canvas id="preview-canvas"></canvas>
+    </div>
+  </div>
   <div id="scan-result"></div>
 
   <script type="module" src="/src/main.ts"></script>

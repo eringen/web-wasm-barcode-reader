@@ -32,6 +32,12 @@ export interface ScannerOptions {
    * Default: { width: 0.702, height: 0.242 } — matches the original barcode layout.
    */
   scanRegion?: { width: number; height: number };
+  /**
+   * Optional canvas to render a live preview of what each rotation pass
+   * sees. Shows all three angles (0°, +30°, -30°) stacked vertically.
+   * The detected angle gets a green highlight.
+   */
+  previewCanvas?: HTMLCanvasElement;
 }
 
 export interface ScanResult {
@@ -88,6 +94,8 @@ export class BarcodeScanner {
   private timerId: ReturnType<typeof setInterval> | null = null;
   private wasmApi: WasmApi | null = null;
   private beepAudio: HTMLAudioElement | null = null;
+  private previewCanvas: HTMLCanvasElement | null = null;
+  private previewCtx: CanvasRenderingContext2D | null = null;
 
   // Cached layout values (set during setupDOM)
   private cameraWidth = 0;
@@ -113,6 +121,7 @@ export class BarcodeScanner {
     this.facingMode = options.facingMode ?? 'environment';
     this.regionWidth = options.scanRegion?.width ?? 0.702;
     this.regionHeight = options.scanRegion?.height ?? 0.242;
+    this.previewCanvas = options.previewCanvas ?? null;
   }
 
   // ── Public lifecycle ────────────────────────────────────────────
@@ -219,6 +228,13 @@ export class BarcodeScanner {
     if (this.beepOnDetect) {
       this.beepAudio = new Audio(BEEP_DATA_URI);
     }
+
+    // Preview canvas — size it to fit three stacked rotation frames.
+    if (this.previewCanvas) {
+      this.previewCanvas.width = this.barcodeWidth * 2;
+      this.previewCanvas.height = this.barcodeHeight * 2 * ROTATION_ANGLES.length;
+      this.previewCtx = this.previewCanvas.getContext('2d');
+    }
   }
 
   private teardownDOM(): void {
@@ -234,6 +250,7 @@ export class BarcodeScanner {
     this.offscreen = null;
     this.offCtx = null;
     this.beepAudio = null;
+    this.previewCtx = null;
   }
 
   // ── WASM loading ────────────────────────────────────────────────
@@ -394,7 +411,13 @@ export class BarcodeScanner {
     const w = this.offscreen.width;
     const h = this.offscreen.height;
 
-    for (const angle of ROTATION_ANGLES) {
+    // Clear preview canvas once per tick so all three rows are fresh.
+    if (this.previewCtx) {
+      this.previewCtx.clearRect(0, 0, this.previewCanvas!.width, this.previewCanvas!.height);
+    }
+
+    for (let ai = 0; ai < ROTATION_ANGLES.length; ai++) {
+      const angle = ROTATION_ANGLES[ai];
       this.detectedThisTick = false;
 
       this.offCtx.save();
@@ -417,6 +440,12 @@ export class BarcodeScanner {
 
       this.offCtx.restore();
 
+      // Draw this rotation pass into the preview canvas (stacked vertically).
+      if (this.previewCtx) {
+        const rowY = ai * h;
+        this.previewCtx.drawImage(this.offscreen, 0, 0, w, h, 0, rowY, w, h);
+      }
+
       const imageData = this.offCtx.getImageData(0, 0, w, h);
       const grayData = this.toGrayscale(imageData.data);
 
@@ -429,6 +458,25 @@ export class BarcodeScanner {
       // scan_image triggers Module.processResult synchronously if a barcode is found.
       // The buffer is freed internally by zbar — do not free again from JS.
       this.wasmApi.scan_image(ptr, w, h);
+
+      // Draw angle label + detection highlight on the preview row.
+      if (this.previewCtx) {
+        const rowY = ai * h;
+        const deg = Math.round(angle * 180 / Math.PI);
+        const label = `${deg >= 0 ? '+' : ''}${deg}°`;
+
+        // Green border on the row that detected
+        if (this.detectedThisTick) {
+          this.previewCtx.strokeStyle = '#00ff88';
+          this.previewCtx.lineWidth = 3;
+          this.previewCtx.strokeRect(1, rowY + 1, w - 2, h - 2);
+        }
+
+        // Angle label
+        this.previewCtx.font = 'bold 16px monospace';
+        this.previewCtx.fillStyle = this.detectedThisTick ? '#00ff88' : 'rgba(255,255,255,0.7)';
+        this.previewCtx.fillText(label, 8, rowY + 22);
+      }
 
       // Early exit: if we found a barcode at this angle, skip remaining rotations.
       if (this.detectedThisTick) break;

@@ -9,9 +9,11 @@ const mount = document.getElementById('scanner-mount');
 if (!mount) throw new Error('Missing #scanner-mount element');
 
 const resultEl = document.getElementById('scan-result');
+const previewCanvas = document.getElementById('preview-canvas') as HTMLCanvasElement | null;
 
 const scanner = new BarcodeScanner({
   container: mount,
+  previewCanvas: previewCanvas ?? undefined,
   onDetect: (result) => {
     console.log(`[${result.symbol}] ${result.data}`);
     if (resultEl) {
