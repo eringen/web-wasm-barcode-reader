@@ -6,7 +6,7 @@ Built with TypeScript, Vite, and a wrapper-ready `BarcodeScanner` class designed
 
 Based on the blog post: [Using the ZBar barcode scanning suite in the browser with WebAssembly](https://barkeywolf.consulting/posts/barcode-scanner-webassembly/).
 
-My take:  [Barcode Scanning on iOS: The Missing Web API and a WebAssembly Solution]([https://barkeywolf.consulting/posts/barcode-scanner-webassembly/](https://eringen.com/blog/barcode-scanning-on-ios-the-missing-web-api-and-a-webassembly-solution)).
+My take: [Barcode Scanning on iOS: The Missing Web API and a WebAssembly Solution](https://eringen.com/blog/barcode-scanning-on-ios-the-missing-web-api-and-a-webassembly-solution).
 
 NPM: [https://www.npmjs.com/package/web-wasm-barcode-reader](https://www.npmjs.com/package/web-wasm-barcode-reader)
 
