@@ -87,7 +87,6 @@ export class BarcodeScanner {
   private stream: MediaStream | null = null;
   private timerId: ReturnType<typeof setInterval> | null = null;
   private wasmApi: WasmApi | null = null;
-  private wasmBufferPtr: number | null = null;
   private beepAudio: HTMLAudioElement | null = null;
 
   // Cached layout values (set during setupDOM)
@@ -138,7 +137,6 @@ export class BarcodeScanner {
   stop(): void {
     this.stopScanLoop();
     this.stopCamera();
-    this.freeWasmBuffer();
     this.teardownDOM();
     this._isRunning = false;
   }
@@ -209,7 +207,7 @@ export class BarcodeScanner {
 
     // Offscreen canvas for pixel extraction — 2× for sharper image
     this.offscreen = new OffscreenCanvas(this.barcodeWidth * 2, this.barcodeHeight * 2);
-    this.offCtx = this.offscreen.getContext('2d');
+    this.offCtx = this.offscreen.getContext('2d', { willReadFrequently: true });
 
     // CSS overlay (mask + brackets + laser)
     this.overlayRoot = createOverlay(this.container, {
@@ -422,15 +420,15 @@ export class BarcodeScanner {
       const imageData = this.offCtx.getImageData(0, 0, w, h);
       const grayData = this.toGrayscale(imageData.data);
 
-      // Allocate WASM heap buffer once, reuse across angles.
-      // create_buffer returns a pointer into WASM linear memory.
-      if (this.wasmBufferPtr === null) {
-        this.wasmBufferPtr = this.wasmApi.create_buffer(w, h);
-      }
-      Module.HEAP8.set(grayData, this.wasmBufferPtr);
+      // Must allocate a fresh buffer each call: scan_image passes the pointer
+      // to zbar with zbar_image_free_data as cleanup, so zbar frees it when
+      // the image is destroyed. Reusing a pointer would be use-after-free.
+      const ptr = this.wasmApi.create_buffer(w, h);
+      Module.HEAP8.set(grayData, ptr);
 
       // scan_image triggers Module.processResult synchronously if a barcode is found.
-      this.wasmApi.scan_image(this.wasmBufferPtr, w, h);
+      // The buffer is freed internally by zbar — do not free again from JS.
+      this.wasmApi.scan_image(ptr, w, h);
 
       // Early exit: if we found a barcode at this angle, skip remaining rotations.
       if (this.detectedThisTick) break;
@@ -468,12 +466,4 @@ export class BarcodeScanner {
     this.polyCtx.stroke();
   }
 
-  // ── WASM memory cleanup ─────────────────────────────────────────
-
-  private freeWasmBuffer(): void {
-    if (this.wasmBufferPtr !== null && this.wasmApi) {
-      this.wasmApi.destroy_buffer(this.wasmBufferPtr);
-      this.wasmBufferPtr = null;
-    }
-  }
 }
