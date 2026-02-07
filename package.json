@@ -1,12 +1,36 @@
 {
   "name": "web-wasm-barcode-reader",
   "version": "1.0.0",
-  "private": true,
+  "description": "Barcode scanner powered by ZBar compiled to WebAssembly",
+  "keywords": ["barcode", "scanner", "wasm", "webassembly", "zbar", "qr-code"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niclasku/web-wasm-barcode-reader.git"
+  },
   "type": "module",
+  "main": "dist/web-wasm-barcode-reader.umd.cjs",
+  "module": "dist/web-wasm-barcode-reader.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/web-wasm-barcode-reader.js",
+      "require": "./dist/web-wasm-barcode-reader.umd.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "public/a.out.js",
+    "public/a.out.wasm"
+  ],
+  "sideEffects": false,
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "build:lib": "vite build --config vite.lib.config.ts && tsc --project tsconfig.lib.json",
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build:lib"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
