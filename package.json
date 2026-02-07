@@ -1,12 +1,12 @@
 {
   "name": "web-wasm-barcode-reader",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Barcode scanner powered by ZBar compiled to WebAssembly",
   "keywords": ["barcode", "scanner", "wasm", "webassembly", "zbar", "qr-code"],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/niclasku/web-wasm-barcode-reader.git"
+    "url": "https://github.com/eringen/web-wasm-barcode-reader"
   },
   "type": "module",
   "main": "dist/web-wasm-barcode-reader.umd.cjs",
