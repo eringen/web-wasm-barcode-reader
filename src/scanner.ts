@@ -190,6 +190,8 @@ export class BarcodeScanner {
     this.video.setAttribute('autoplay', '');
     this.video.setAttribute('muted', '');
     this.video.setAttribute('playsinline', '');
+    // Property must also be set — attribute alone doesn't satisfy autoplay policy.
+    this.video.muted = true;
     this.container.appendChild(this.video);
 
     // Canvas for drawing polygon overlays on detected barcodes
@@ -371,6 +373,23 @@ export class BarcodeScanner {
   private scanTick(): void {
     if (!this.video || !this.offCtx || !this.offscreen || !this.wasmApi || !this.polyCtx) return;
 
+    // videoWidth/videoHeight are the camera's actual intrinsic resolution.
+    // They're 0 until the first frame is decoded — skip until ready.
+    const videoW = this.video.videoWidth;
+    const videoH = this.video.videoHeight;
+    if (videoW === 0 || videoH === 0) return;
+
+    // Map from container coordinates to the video's native pixel grid.
+    // The old code assumed the video was exactly 2× the container, but the
+    // camera may deliver any resolution. This scales correctly regardless.
+    const scaleX = videoW / this.cameraWidth;
+    const scaleY = videoH / this.cameraHeight;
+
+    const srcX = this.barcodeOffsetX * scaleX;
+    const srcY = this.barcodeOffsetY * scaleY;
+    const srcW = this.barcodeWidth * scaleX;
+    const srcH = this.barcodeHeight * scaleY;
+
     // Clear the polygon overlay from the previous tick
     this.polyCtx.clearRect(0, 0, this.cameraWidth, this.cameraHeight);
 
@@ -390,11 +409,11 @@ export class BarcodeScanner {
         this.offCtx.translate(-w / 2, -h / 2);
       }
 
-      // Crop the scan region from the video feed at 2× resolution
+      // Crop the scan region from the video's intrinsic resolution
+      // and draw it into the offscreen canvas at our target size.
       this.offCtx.drawImage(
         this.video,
-        this.barcodeOffsetX * 2, this.barcodeOffsetY * 2,
-        this.barcodeWidth * 2, this.barcodeHeight * 2,
+        srcX, srcY, srcW, srcH,
         0, 0, w, h,
       );
 
