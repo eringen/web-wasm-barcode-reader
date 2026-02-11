@@ -349,12 +349,15 @@ export class BarcodeScanner {
 
       this.detectedThisTick = true;
 
-      // Convert polygon from 2× capture coords to container coords,
-      // applying the scan region offset.
+      // Convert polygon from offscreen-canvas coords to container coords.
+      // offscreen size may differ from barcodeWidth/Height (currently 2×),
+      // so derive the scale dynamically rather than hardcoding / 2.
+      const scaleToContainerX = this.barcodeWidth / (this.offscreen?.width ?? this.barcodeWidth);
+      const scaleToContainerY = this.barcodeHeight / (this.offscreen?.height ?? this.barcodeHeight);
       const adjusted: number[] = [];
       for (let i = 0; i < polygon.length; i += 2) {
-        adjusted.push(polygon[i] / 2 + this.barcodeOffsetX);
-        adjusted.push(polygon[i + 1] / 2 + this.barcodeOffsetY);
+        adjusted.push(polygon[i] * scaleToContainerX + this.barcodeOffsetX);
+        adjusted.push(polygon[i + 1] * scaleToContainerY + this.barcodeOffsetY);
       }
 
       // Draw detection polygon on the overlay canvas
