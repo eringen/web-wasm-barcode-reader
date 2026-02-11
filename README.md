@@ -73,7 +73,6 @@ web-wasm-barcode-reader/
 │   └── types/
 │       └── emscripten.d.ts   # TypeScript declarations for the Emscripten Module
 ├── index.html                # Demo page
-├── index2.html               # Standalone OCR/MRZ experiment (Tesseract.js)
 ├── scan.c                    # C source — ZBar image scanning + WASM buffer management
 ├── library.js                # Emscripten JS library — bridges WASM results to JS
 ├── package.json
