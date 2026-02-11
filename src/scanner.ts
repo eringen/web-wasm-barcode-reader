@@ -87,8 +87,8 @@ export class BarcodeScanner {
   private video: HTMLVideoElement | null = null;
   private polyCanvas: HTMLCanvasElement | null = null;
   private polyCtx: CanvasRenderingContext2D | null = null;
-  private offscreen: OffscreenCanvas | null = null;
-  private offCtx: OffscreenCanvasRenderingContext2D | null = null;
+  private offscreen: OffscreenCanvas | HTMLCanvasElement | null = null;
+  private offCtx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null = null;
   private overlayRoot: HTMLElement | null = null;
   private stream: MediaStream | null = null;
   private timerId: ReturnType<typeof setInterval> | null = null;
@@ -214,8 +214,19 @@ export class BarcodeScanner {
     this.container.appendChild(this.polyCanvas);
     this.polyCtx = this.polyCanvas.getContext('2d');
 
-    // Offscreen canvas for pixel extraction — 2× for sharper image
-    this.offscreen = new OffscreenCanvas(this.barcodeWidth * 2, this.barcodeHeight * 2);
+    // Offscreen canvas for pixel extraction — 2× for sharper image.
+    // Fall back to a hidden HTMLCanvasElement when OffscreenCanvas is unavailable
+    // (e.g. Safari < 16.4).
+    const ow = this.barcodeWidth * 2;
+    const oh = this.barcodeHeight * 2;
+    if (typeof OffscreenCanvas !== 'undefined') {
+      this.offscreen = new OffscreenCanvas(ow, oh);
+    } else {
+      const c = document.createElement('canvas');
+      c.width = ow;
+      c.height = oh;
+      this.offscreen = c;
+    }
     this.offCtx = this.offscreen.getContext('2d', { willReadFrequently: true });
 
     // CSS overlay (mask + brackets + laser)
