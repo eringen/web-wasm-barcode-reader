@@ -15,7 +15,7 @@ mergeInto(LibraryManager.library, {
         // call the downstream processing function that should have been set by the client code
         const downstreamProcessor = Module["processResult"];
         if (downstreamProcessor == null) {
-            throw new Error("No downstream processing function set");
+            return;
         }
         downstreamProcessor(
             Pointer_stringify(symbol),
