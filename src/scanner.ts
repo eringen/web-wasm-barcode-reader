@@ -477,6 +477,7 @@ export class BarcodeScanner {
       // to zbar with zbar_image_free_data as cleanup, so zbar frees it when
       // the image is destroyed. Reusing a pointer would be use-after-free.
       const ptr = this.wasmApi.create_buffer(w, h);
+      if (ptr === 0) continue; // malloc failed (OOM) — skip this rotation
       Module.HEAP8.set(grayData, ptr);
 
       // scan_image triggers Module.processResult synchronously if a barcode is found.
