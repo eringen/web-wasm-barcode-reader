@@ -9,15 +9,20 @@ extern void js_output_result(const char *symbolName, const char *data, const int
 
 zbar_image_scanner_t *scanner = NULL;
 
+/** Lazily create and configure the scanner once. */
+static void ensure_scanner(void)
+{
+    if (scanner) return;
+
+    scanner = zbar_image_scanner_create();
+    zbar_image_scanner_set_config(scanner, 0, ZBAR_CFG_X_DENSITY, 1);
+    zbar_image_scanner_set_config(scanner, 0, ZBAR_CFG_Y_DENSITY, 1);
+}
+
 EMSCRIPTEN_KEEPALIVE
 int scan_image(uint8_t *raw, int width, int height)
 {
-    // create the scanner
-    scanner = zbar_image_scanner_create();
-
-    // set the scanner density (function will have nonzero return code on error, check your browser console)
-    printf("%d \n", zbar_image_scanner_set_config(scanner, 0, ZBAR_CFG_X_DENSITY, 1));
-    printf("%d \n", zbar_image_scanner_set_config(scanner, 0, ZBAR_CFG_Y_DENSITY, 1));
+    ensure_scanner();
 
     // hydrate a zbar image struct with the image data.
     zbar_image_t *image = zbar_image_create();
@@ -40,7 +45,7 @@ int scan_image(uint8_t *raw, int width, int height)
         unsigned poly_size = zbar_symbol_get_loc_size(symbol);
 
         // return the polygon as a flat array.
-        // (Parsing two-dimensional arrays from the wesm heap introduces unnecessary upstream code complexity)
+        // (Parsing two-dimensional arrays from the wasm heap introduces unnecessary upstream code complexity)
         int poly[poly_size * 2];
         unsigned u = 0;
         for (unsigned p = 0; p < poly_size; p++)
@@ -54,11 +59,21 @@ int scan_image(uint8_t *raw, int width, int height)
         js_output_result(zbar_get_symbol_name(typ), data, poly, poly_size);
     }
 
-    // clean up
+    // clean up the image (scanner is reused across calls)
     zbar_image_destroy(image);
-    zbar_image_scanner_destroy(scanner);
 
     return (0);
+}
+
+/** Tear down the reusable scanner. Call once when done scanning. */
+EMSCRIPTEN_KEEPALIVE
+void destroy_scanner(void)
+{
+    if (scanner)
+    {
+        zbar_image_scanner_destroy(scanner);
+        scanner = NULL;
+    }
 }
 
 // this function can be used from the javascript environment to
