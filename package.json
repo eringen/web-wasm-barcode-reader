@@ -1,6 +1,6 @@
 {
   "name": "web-wasm-barcode-reader",
-  "version": "1.1.2",
+  "version": "1.2.2",
   "description": "Barcode scanner powered by ZBar compiled to WebAssembly",
   "keywords": ["barcode", "scanner", "wasm", "webassembly", "zbar", "qr-code"],
   "license": "MIT",
