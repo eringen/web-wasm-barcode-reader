@@ -56,7 +56,7 @@ interface WasmApi {
   scan_image: (ptr: number, width: number, height: number) => void;
   create_buffer: (width: number, height: number) => number;
   destroy_buffer: (ptr: number) => void;
-  destroy_scanner: () => void;
+  destroy_scanner?: () => void;
 }
 
 /** Base64-encoded short beep sound — avoids an external audio file. */
@@ -148,7 +148,7 @@ export class BarcodeScanner {
     this.stopScanLoop();
     this.stopCamera();
     this.teardownDOM();
-    this.wasmApi?.destroy_scanner();
+    this.wasmApi?.destroy_scanner?.();
     this._isRunning = false;
   }
 
@@ -295,8 +295,13 @@ export class BarcodeScanner {
             scan_image: cwrap('scan_image', '', ['number', 'number', 'number']) as WasmApi['scan_image'],
             create_buffer: cwrap('create_buffer', 'number', ['number', 'number']) as WasmApi['create_buffer'],
             destroy_buffer: cwrap('destroy_buffer', '', ['number']) as WasmApi['destroy_buffer'],
-            destroy_scanner: cwrap('destroy_scanner', '', []) as WasmApi['destroy_scanner'],
           };
+          // destroy_scanner is only available after recompiling the WASM binary.
+          try {
+            this.wasmApi.destroy_scanner = cwrap('destroy_scanner', '', []) as () => void;
+          } catch {
+            // Old binary without destroy_scanner — scanner will leak on stop(), which is acceptable.
+          }
           resolve();
         } catch (e) {
           reject(e);
