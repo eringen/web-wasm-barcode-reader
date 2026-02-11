@@ -111,12 +111,57 @@ The scanner communicates with ZBar through three C functions exposed via Emscrip
 
 > **Important:** `scan_image` registers the buffer with `zbar_image_free_data` as the cleanup handler, so ZBar frees the buffer when the image is destroyed. A fresh buffer must be allocated for every `scan_image` call — reusing a pointer is use-after-free.
 
+## Usage as npm Package
+
+The library requires the Emscripten WASM glue script (`a.out.js`) to be loaded before the scanner is started. The WASM binary (`a.out.wasm`) is fetched automatically by the glue script at runtime.
+
+### 1. Copy the WASM files into your public/static directory
+
+After installing, copy the WASM assets to a location your web server can serve:
+
+```sh
+cp node_modules/web-wasm-barcode-reader/public/a.out.js  public/
+cp node_modules/web-wasm-barcode-reader/public/a.out.wasm public/
+```
+
+Or with a bundler, add a copy step to your build pipeline.
+
+### 2. Load the glue script before using the scanner
+
+Add a `<script>` tag in your HTML **before** your app bundle:
+
+```html
+<script src="/a.out.js"></script>
+<script type="module" src="/your-app.js"></script>
+```
+
+> **Important:** `a.out.js` must be loaded as a classic (non-module) script because it sets up the global `Module` object that the scanner depends on.
+
+### 3. Import and use
+
+```typescript
+import { BarcodeScanner } from 'web-wasm-barcode-reader';
+
+const scanner = new BarcodeScanner({
+  container: document.getElementById('scanner-mount')!,
+  onDetect: (result) => {
+    console.log(result.symbol, result.data);
+  },
+});
+
+await scanner.start();
+// later...
+scanner.stop();
+```
+
+If `a.out.js` is not loaded, `start()` will reject with a clear error message.
+
 ## API
 
 ### `BarcodeScanner`
 
 ```typescript
-import { BarcodeScanner } from './scanner';
+import { BarcodeScanner } from 'web-wasm-barcode-reader';
 
 const scanner = new BarcodeScanner({
   container: document.getElementById('scanner-mount')!,
@@ -168,7 +213,7 @@ The `BarcodeScanner` constructor has **no side effects** — it only stores conf
 
 ```tsx
 import { useEffect, useRef } from 'react';
-import { BarcodeScanner } from './scanner';
+import { BarcodeScanner } from 'web-wasm-barcode-reader';
 
 function Scanner({ onScan }: { onScan: (data: string) => void }) {
   const mountRef = useRef<HTMLDivElement>(null);

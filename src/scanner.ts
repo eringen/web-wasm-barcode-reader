@@ -262,6 +262,13 @@ export class BarcodeScanner {
    */
   private loadWasm(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
+      if (typeof Module === 'undefined') {
+        reject(new Error(
+          'WASM Module not loaded. Load the Emscripten glue script (a.out.js) before calling start().',
+        ));
+        return;
+      }
+
       const timeout = setTimeout(() => reject(new Error('WASM load timeout')), 15_000);
 
       const init = (): void => {
