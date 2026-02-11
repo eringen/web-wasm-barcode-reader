@@ -15,13 +15,9 @@ const scanner = new BarcodeScanner({
   container: mount,
   previewCanvas: previewCanvas ?? undefined,
   onDetect: (result) => {
-    console.log(`[${result.symbol}] ${result.data}`);
     if (resultEl) {
       resultEl.textContent = `${result.symbol}: ${result.data}`;
     }
-  },
-  onError: (err) => {
-    console.error('Scanner error:', err);
   },
 });
 
