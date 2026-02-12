@@ -184,6 +184,9 @@ export class BarcodeScanner {
 
     this.cameraWidth = this.container.clientWidth;
     this.cameraHeight = this.container.clientHeight;
+    if (this.cameraWidth === 0 || this.cameraHeight === 0) {
+      throw new Error('Container has zero size. Ensure it is visible and has explicit width/height before calling start().');
+    }
     this.barcodeWidth = Math.floor(this.cameraWidth * this.regionWidth);
     this.barcodeHeight = Math.floor(this.cameraHeight * this.regionHeight);
     this.barcodeOffsetX = Math.floor((this.cameraWidth - this.barcodeWidth) / 2);
