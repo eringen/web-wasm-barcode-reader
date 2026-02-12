@@ -338,7 +338,7 @@ export class BarcodeScanner {
         height: desiredSize,
         facingMode: this.facingMode,
         resizeMode: 'crop-and-scale' as string,
-        aspectRatio: { exact: 1 },
+        aspectRatio: { ideal: 1 },
       } as MediaTrackConstraints,
     };
 
