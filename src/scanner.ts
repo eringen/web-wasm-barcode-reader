@@ -444,8 +444,8 @@ export class BarcodeScanner {
     const h = this.offscreen.height;
 
     // Clear preview canvas once per tick so all three rows are fresh.
-    if (this.previewCtx) {
-      this.previewCtx.clearRect(0, 0, this.previewCanvas!.width, this.previewCanvas!.height);
+    if (this.previewCtx && this.previewCanvas) {
+      this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
     }
 
     for (let ai = 0; ai < ROTATION_ANGLES.length; ai++) {
