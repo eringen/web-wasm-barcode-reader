@@ -1,13 +1,13 @@
 {
   "name": "web-wasm-barcode-reader",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Barcode scanner powered by ZBar compiled to WebAssembly",
   "keywords": ["barcode", "scanner", "wasm", "webassembly", "zbar", "qr-code"],
   "license": "MIT",
   "author": "ilhan negis",
   "homepage":"https://eringen.com/blog/barcode-scanning-on-ios-the-missing-web-api-and-a-webassembly-solution",
   "bugs": {
-    "url": "https://github.com/eringen/web-mrz-reader/issues"
+    "url": "https://github.com/eringen/web-wasm-barcode-reader/issues"
   },
   "repository": {
     "type": "git",
