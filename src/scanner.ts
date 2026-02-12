@@ -218,6 +218,7 @@ export class BarcodeScanner {
     });
     this.container.appendChild(this.polyCanvas);
     this.polyCtx = this.polyCanvas.getContext('2d');
+    if (!this.polyCtx) throw new Error('Failed to get 2D context for polygon overlay canvas.');
 
     // Offscreen canvas for pixel extraction — 2× for sharper image.
     // Fall back to a hidden HTMLCanvasElement when OffscreenCanvas is unavailable
@@ -233,6 +234,7 @@ export class BarcodeScanner {
       this.offscreen = c;
     }
     this.offCtx = this.offscreen.getContext('2d', { willReadFrequently: true });
+    if (!this.offCtx) throw new Error('Failed to get 2D context for offscreen canvas.');
 
     // CSS overlay (mask + brackets + laser)
     this.overlayRoot = createOverlay(this.container, {
