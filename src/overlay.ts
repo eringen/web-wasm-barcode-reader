@@ -28,8 +28,8 @@ function injectStyles(): void {
   style.id = STYLE_ID;
   style.textContent = `
     @keyframes scan-sweep {
-      0%, 100% { top: 0; }
-      50% { top: calc(100% - 2px); }
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(100%); }
     }
 
     .scan-overlay {
@@ -91,11 +91,19 @@ function injectStyles(): void {
     .scan-overlay__line {
       position: absolute;
       left: 10%;
+      top: 0;
       width: 80%;
+      height: calc(100% - 2px);
+      animation: scan-sweep 2.5s ease-in-out infinite;
+    }
+
+    .scan-overlay__line::before {
+      content: '';
+      display: block;
+      width: 100%;
       height: 2px;
       background: ${SCAN_LINE_COLOR};
-      box-shadow: 0 0 8px ${SCAN_LINE_COLOR}, 0 0 24px ${SCAN_LINE_COLOR};
-      animation: scan-sweep 2.5s ease-in-out infinite;
+      box-shadow: 0 0 8px ${SCAN_LINE_COLOR};
       border-radius: 1px;
     }
   `;
