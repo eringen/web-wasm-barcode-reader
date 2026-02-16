@@ -108,6 +108,8 @@ export class BarcodeScanner {
 
   /** Tracks whether we detected a barcode in the current scan tick. */
   private detectedThisTick = false;
+  /** Whether the previous tick had a detection (used to avoid unnecessary clearRect). */
+  private hadDetectionLastTick = false;
 
   get isRunning(): boolean {
     return this._isRunning;
@@ -439,8 +441,10 @@ export class BarcodeScanner {
     const srcW = this.barcodeWidth * scaleX;
     const srcH = this.barcodeHeight * scaleY;
 
-    // Clear the polygon overlay from the previous tick
-    this.polyCtx.clearRect(0, 0, this.cameraWidth, this.cameraHeight);
+    // Only clear the polygon overlay if the previous tick drew one.
+    if (this.hadDetectionLastTick) {
+      this.polyCtx.clearRect(0, 0, this.cameraWidth, this.cameraHeight);
+    }
 
     const w = this.offscreen.width;
     const h = this.offscreen.height;
@@ -517,6 +521,8 @@ export class BarcodeScanner {
       // Early exit: if we found a barcode at this angle, skip remaining rotations.
       if (this.detectedThisTick) break;
     }
+
+    this.hadDetectionLastTick = this.detectedThisTick;
   }
 
   /**
