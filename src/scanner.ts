@@ -92,7 +92,8 @@ export class BarcodeScanner {
   private offCtx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null = null;
   private overlayRoot: HTMLElement | null = null;
   private stream: MediaStream | null = null;
-  private timerId: ReturnType<typeof setInterval> | null = null;
+  private rafId: number | null = null;
+  private lastScanTime = 0;
   private wasmApi: WasmApi | null = null;
   private beepAudio: HTMLAudioElement | null = null;
   private previewCanvas: HTMLCanvasElement | null = null;
@@ -406,13 +407,20 @@ export class BarcodeScanner {
   // ── Scan loop ───────────────────────────────────────────────────
 
   private startScanLoop(): void {
-    this.timerId = setInterval(() => this.scanTick(), this.scanInterval);
+    const loop = (now: number): void => {
+      if (now - this.lastScanTime >= this.scanInterval) {
+        this.scanTick();
+        this.lastScanTime = now;
+      }
+      this.rafId = requestAnimationFrame(loop);
+    };
+    this.rafId = requestAnimationFrame(loop);
   }
 
   private stopScanLoop(): void {
-    if (this.timerId !== null) {
-      clearInterval(this.timerId);
-      this.timerId = null;
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
     }
   }
 
