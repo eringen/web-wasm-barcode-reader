@@ -480,15 +480,16 @@ export class BarcodeScanner {
         this.previewCtx.drawImage(this.offscreen, 0, 0, w, h, 0, rowY, w, h);
       }
 
-      const imageData = this.offCtx.getImageData(0, 0, w, h);
-      const grayData = this.toGrayscale(imageData.data);
-
       // Must allocate a fresh buffer each call: scan_image passes the pointer
       // to zbar with zbar_image_free_data as cleanup, so zbar frees it when
       // the image is destroyed. Reusing a pointer would be use-after-free.
       const ptr = this.wasmApi.create_buffer(w, h);
       if (ptr === 0) continue; // malloc failed (OOM) — skip this rotation
-      Module.HEAP8.set(grayData, ptr);
+
+      // Write grayscale directly into the WASM heap, avoiding an intermediate
+      // Uint8Array allocation and a separate HEAP8.set copy.
+      const imageData = this.offCtx.getImageData(0, 0, w, h);
+      this.toGrayscaleIntoHeap(imageData.data, ptr);
 
       // scan_image triggers Module.processResult synchronously if a barcode is found.
       // The buffer is freed internally by zbar — do not free again from JS.
@@ -519,15 +520,15 @@ export class BarcodeScanner {
   }
 
   /**
-   * Convert RGBA pixel data to grayscale using the BT.601 luma formula.
-   * Uses integer arithmetic for speed (same formula as the original index.js).
+   * Convert RGBA pixel data to grayscale (BT.601 luma) and write directly
+   * into the WASM heap at the given pointer. Avoids allocating an
+   * intermediate Uint8Array and a separate HEAP8.set copy.
    */
-  private toGrayscale(rgba: Uint8ClampedArray): Uint8Array {
-    const gray = new Uint8Array(rgba.length / 4);
+  private toGrayscaleIntoHeap(rgba: Uint8ClampedArray, heapPtr: number): void {
+    const heap = Module.HEAP8;
     for (let i = 0, j = 0; i < rgba.length; i += 4, j++) {
-      gray[j] = (rgba[i] * 66 + rgba[i + 1] * 129 + rgba[i + 2] * 25 + 4096) >> 8;
+      heap[heapPtr + j] = (rgba[i] * 66 + rgba[i + 1] * 129 + rgba[i + 2] * 25 + 4096) >> 8;
     }
-    return gray;
   }
 
   // ── Drawing ─────────────────────────────────────────────────────
