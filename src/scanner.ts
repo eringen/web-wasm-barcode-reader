@@ -480,9 +480,8 @@ export class BarcodeScanner {
       const angle = ROTATION_ANGLES[ai];
       this.detectedThisTick = false;
 
-      this.offCtx.save();
-
       if (angle !== 0) {
+        this.offCtx.save();
         // Rotate around the center of the offscreen canvas so the
         // barcode region stays centered after rotation.
         this.offCtx.translate(w / 2, h / 2);
@@ -498,7 +497,9 @@ export class BarcodeScanner {
         0, 0, w, h,
       );
 
-      this.offCtx.restore();
+      if (angle !== 0) {
+        this.offCtx.restore();
+      }
 
       // Draw this rotation pass into the preview canvas (stacked vertically).
       if (this.previewCtx) {
