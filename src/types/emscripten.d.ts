@@ -7,10 +7,6 @@
  * plus our custom `processResult` callback injected from library.js.
  */
 
-/** Signature for cwrap-returned functions (all our C functions use these shapes). */
-type CWrappedVoid = (...args: number[]) => void;
-type CWrappedNumber = (...args: number[]) => number;
-
 /**
  * Callback that library.js invokes whenever the WASM scanner finds a symbol.
  * - symbol: barcode type (e.g. "EAN-13", "QR-Code")
@@ -23,14 +19,14 @@ interface EmscriptenModule {
   onRuntimeInitialized: (() => void) | null;
 
   /**
-   * Wrap a C function for JS-side calls.
-   * Marked optional because it's not available until after runtime init.
+   * Direct WASM function exports (EMSCRIPTEN_KEEPALIVE).
+   * Available after runtime init. Using these directly avoids
+   * cwrap's argument validation overhead on every call.
    */
-  cwrap?(
-    funcName: string,
-    returnType: '' | 'number' | 'string' | null,
-    argTypes: Array<'number' | 'string'>,
-  ): CWrappedVoid | CWrappedNumber;
+  _scan_image(ptr: number, width: number, height: number): number;
+  _create_buffer(width: number, height: number): number;
+  _destroy_buffer(ptr: number): void;
+  _destroy_scanner?: () => void;
 
   /** Direct views into WASM linear memory. */
   HEAP8: Int8Array;
@@ -44,6 +40,9 @@ interface EmscriptenModule {
    * is detected. We set this from scanner.ts to handle results.
    */
   processResult?: ProcessResultCallback;
+
+  /** Whether the runtime has been initialized (direct exports are available). */
+  calledRun?: boolean;
 }
 
 declare global {

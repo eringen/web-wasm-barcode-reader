@@ -51,9 +51,9 @@ export interface ScanResult {
 
 // ── Internal helpers ────────────────────────────────────────────────
 
-/** WASM API surface after cwrap. */
+/** WASM API surface — direct function exports from Emscripten. */
 interface WasmApi {
-  scan_image: (ptr: number, width: number, height: number) => void;
+  scan_image: (ptr: number, width: number, height: number) => number;
   create_buffer: (width: number, height: number) => number;
   destroy_buffer: (ptr: number) => void;
   destroy_scanner?: () => void;
@@ -305,20 +305,17 @@ export class BarcodeScanner {
       const init = (): void => {
         clearTimeout(timeout);
         try {
-          const cwrap = Module.cwrap;
-          if (!cwrap) throw new Error('Module.cwrap not available after runtime init');
+          if (!Module._scan_image) throw new Error('WASM exports not available after runtime init');
 
-          // cwrap returns a callable; we cast to the known signatures.
+          // Bind direct WASM exports — avoids cwrap's argument validation overhead.
           this.wasmApi = {
-            scan_image: cwrap('scan_image', '', ['number', 'number', 'number']) as WasmApi['scan_image'],
-            create_buffer: cwrap('create_buffer', 'number', ['number', 'number']) as WasmApi['create_buffer'],
-            destroy_buffer: cwrap('destroy_buffer', '', ['number']) as WasmApi['destroy_buffer'],
+            scan_image: Module._scan_image.bind(Module),
+            create_buffer: Module._create_buffer.bind(Module),
+            destroy_buffer: Module._destroy_buffer.bind(Module),
           };
           // destroy_scanner is only available after recompiling the WASM binary.
-          try {
-            this.wasmApi.destroy_scanner = cwrap('destroy_scanner', '', []) as () => void;
-          } catch {
-            // Old binary without destroy_scanner — scanner will leak on stop(), which is acceptable.
+          if (Module._destroy_scanner) {
+            this.wasmApi.destroy_scanner = Module._destroy_scanner.bind(Module);
           }
           resolve();
         } catch (e) {
@@ -327,7 +324,7 @@ export class BarcodeScanner {
       };
 
       // If runtime already initialized (e.g. Module loaded before our code ran)
-      if (Module.cwrap) {
+      if (Module.calledRun) {
         init();
       } else {
         const prev = Module.onRuntimeInitialized;
