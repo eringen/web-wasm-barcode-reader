@@ -38,6 +38,12 @@ export interface ScannerOptions {
    * The detected angle gets a green highlight.
    */
   previewCanvas?: HTMLCanvasElement;
+  /**
+   * Resolution multiplier for the camera and offscreen canvas.
+   * Higher values improve detection of small/dense barcodes at the cost
+   * of more GPU scaling work. Default: 1.5.
+   */
+  resolutionScale?: number;
 }
 
 export interface ScanResult {
@@ -82,6 +88,7 @@ export class BarcodeScanner {
   private readonly facingMode: 'environment' | 'user';
   private readonly regionWidth: number;
   private readonly regionHeight: number;
+  private readonly resolutionScale: number;
 
   // Runtime state
   private _isRunning = false;
@@ -131,6 +138,7 @@ export class BarcodeScanner {
     this.facingMode = options.facingMode ?? 'environment';
     this.regionWidth = options.scanRegion?.width ?? 0.702;
     this.regionHeight = options.scanRegion?.height ?? 0.242;
+    this.resolutionScale = options.resolutionScale ?? 1.5;
     this.previewCanvas = options.previewCanvas ?? null;
   }
 
@@ -229,11 +237,11 @@ export class BarcodeScanner {
     this.polyCtx = this.polyCanvas.getContext('2d');
     if (!this.polyCtx) throw new Error('Failed to get 2D context for polygon overlay canvas.');
 
-    // Offscreen canvas for pixel extraction — 2× for sharper image.
+    // Offscreen canvas for pixel extraction — scaled up for sharper image.
     // Fall back to a hidden HTMLCanvasElement when OffscreenCanvas is unavailable
     // (e.g. Safari < 16.4).
-    const ow = this.barcodeWidth * 2;
-    const oh = this.barcodeHeight * 2;
+    const ow = Math.round(this.barcodeWidth * this.resolutionScale);
+    const oh = Math.round(this.barcodeHeight * this.resolutionScale);
     if (typeof OffscreenCanvas !== 'undefined') {
       this.offscreen = new OffscreenCanvas(ow, oh);
     } else {
@@ -262,8 +270,8 @@ export class BarcodeScanner {
 
     // Preview canvas — size it to fit three stacked rotation frames.
     if (this.previewCanvas) {
-      this.previewCanvas.width = this.barcodeWidth * 2;
-      this.previewCanvas.height = this.barcodeHeight * 2 * ROTATION_ANGLES.length;
+      this.previewCanvas.width = Math.round(this.barcodeWidth * this.resolutionScale);
+      this.previewCanvas.height = Math.round(this.barcodeHeight * this.resolutionScale) * ROTATION_ANGLES.length;
       this.previewCtx = this.previewCanvas.getContext('2d');
     }
   }
@@ -341,8 +349,8 @@ export class BarcodeScanner {
   private async startCamera(): Promise<void> {
     if (!this.video) throw new Error('DOM not set up');
 
-    // Request 2× container size for a crisper barcode capture region.
-    const desiredSize = this.cameraWidth * 2;
+    // Request scaled-up container size for a crisper barcode capture region.
+    const desiredSize = Math.round(this.cameraWidth * this.resolutionScale);
 
     const constraints: MediaStreamConstraints = {
       video: {
