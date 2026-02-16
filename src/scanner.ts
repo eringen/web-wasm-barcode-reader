@@ -112,6 +112,12 @@ export class BarcodeScanner {
   /** Whether the previous tick had a detection (used to avoid unnecessary clearRect). */
   private hadDetectionLastTick = false;
 
+  // Pre-allocated buffers to reduce per-tick GC pressure
+  private polyScaleX = 0;
+  private polyScaleY = 0;
+  private scratchPoly: number[] = [];
+  private cachedHeap: Int8Array | null = null;
+
   get isRunning(): boolean {
     return this._isRunning;
   }
@@ -238,6 +244,10 @@ export class BarcodeScanner {
     }
     this.offCtx = this.offscreen.getContext('2d', { willReadFrequently: true });
     if (!this.offCtx) throw new Error('Failed to get 2D context for offscreen canvas.');
+
+    // Cache polygon scale factors — constant for the scanner's lifetime.
+    this.polyScaleX = this.barcodeWidth / this.offscreen.width;
+    this.polyScaleY = this.barcodeHeight / this.offscreen.height;
 
     // CSS overlay (mask + brackets + laser)
     this.overlayRoot = createOverlay(this.container, {
@@ -376,19 +386,19 @@ export class BarcodeScanner {
 
       this.detectedThisTick = true;
 
-      // Convert polygon from offscreen-canvas coords to container coords.
-      // offscreen size may differ from barcodeWidth/Height (currently 2×),
-      // so derive the scale dynamically rather than hardcoding / 2.
-      const scaleToContainerX = this.barcodeWidth / (this.offscreen?.width ?? this.barcodeWidth);
-      const scaleToContainerY = this.barcodeHeight / (this.offscreen?.height ?? this.barcodeHeight);
-      const adjusted: number[] = [];
+      // Convert polygon from offscreen-canvas coords to container coords
+      // using cached scale factors. Reuse scratchPoly for drawPoly to
+      // avoid allocating a new array; copy to a fresh array for the
+      // consumer's ScanResult (they may hold a reference to it).
+      const sp = this.scratchPoly;
+      sp.length = polygon.length;
       for (let i = 0; i < polygon.length; i += 2) {
-        adjusted.push(polygon[i] * scaleToContainerX + this.barcodeOffsetX);
-        adjusted.push(polygon[i + 1] * scaleToContainerY + this.barcodeOffsetY);
+        sp[i] = polygon[i] * this.polyScaleX + this.barcodeOffsetX;
+        sp[i + 1] = polygon[i + 1] * this.polyScaleY + this.barcodeOffsetY;
       }
 
       // Draw detection polygon on the overlay canvas
-      this.drawPoly(adjusted);
+      this.drawPoly(sp);
 
       // Audible feedback
       if (this.beepOnDetect && this.beepAudio) {
@@ -397,7 +407,7 @@ export class BarcodeScanner {
         });
       }
 
-      const result: ScanResult = { symbol, data, polygon: adjusted };
+      const result: ScanResult = { symbol, data, polygon: sp.slice() };
       this.onDetect(result);
     };
 
@@ -456,6 +466,10 @@ export class BarcodeScanner {
 
     const w = this.offscreen.width;
     const h = this.offscreen.height;
+
+    // Cache HEAP8 reference for this tick — avoids repeated property chain
+    // lookups in the tight grayscale conversion loop (~170K iterations).
+    this.cachedHeap = Module.HEAP8;
 
     // Clear preview canvas once per tick so all three rows are fresh.
     if (this.previewCtx && this.previewCanvas) {
@@ -535,11 +549,11 @@ export class BarcodeScanner {
 
   /**
    * Convert RGBA pixel data to grayscale (BT.601 luma) and write directly
-   * into the WASM heap at the given pointer. Avoids allocating an
-   * intermediate Uint8Array and a separate HEAP8.set copy.
+   * into the WASM heap at the given pointer. Uses the per-tick cached HEAP8
+   * reference to avoid repeated property lookups in the tight loop.
    */
   private toGrayscaleIntoHeap(rgba: Uint8ClampedArray, heapPtr: number): void {
-    const heap = Module.HEAP8;
+    const heap = this.cachedHeap!;
     for (let i = 0, j = 0; i < rgba.length; i += 4, j++) {
       heap[heapPtr + j] = (rgba[i] * 66 + rgba[i + 1] * 129 + rgba[i + 2] * 25 + 4096) >> 8;
     }
