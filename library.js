@@ -5,7 +5,7 @@ mergeInto(LibraryManager.library, {
 
         // View into WASM heap — valid for the duration of this synchronous call.
         const coordinates = new Int32Array(
-            Module.HEAP32.buffer,
+            Module["HEAP32"].buffer,
             polygon,
             polygon_size * 2
         );

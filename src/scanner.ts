@@ -59,7 +59,7 @@ export interface ScanResult {
 
 /** WASM API surface — direct function exports from Emscripten. */
 interface WasmApi {
-  scan_image: (ptr: number, width: number, height: number) => number;
+  scan_image_rgba: (ptr: number, width: number, height: number) => number;
   create_buffer: (width: number, height: number) => number;
   destroy_buffer: (ptr: number) => void;
   destroy_scanner?: () => void;
@@ -123,7 +123,8 @@ export class BarcodeScanner {
   private polyScaleX = 0;
   private polyScaleY = 0;
   private scratchPoly: number[] = [];
-  private cachedHeap: Int8Array | null = null;
+  /** Reusable WASM heap pointer for RGBA scan data — allocated once at init. */
+  private wasmBufferPtr = 0;
 
   get isRunning(): boolean {
     return this._isRunning;
@@ -165,6 +166,10 @@ export class BarcodeScanner {
     this.stopScanLoop();
     this.stopCamera();
     this.teardownDOM();
+    if (this.wasmBufferPtr && this.wasmApi) {
+      this.wasmApi.destroy_buffer(this.wasmBufferPtr);
+      this.wasmBufferPtr = 0;
+    }
     this.wasmApi?.destroy_scanner?.();
     this._isRunning = false;
   }
@@ -313,11 +318,11 @@ export class BarcodeScanner {
       const init = (): void => {
         clearTimeout(timeout);
         try {
-          if (!Module._scan_image) throw new Error('WASM exports not available after runtime init');
+          if (!Module._scan_image_rgba) throw new Error('WASM exports not available after runtime init');
 
           // Bind direct WASM exports — avoids cwrap's argument validation overhead.
           this.wasmApi = {
-            scan_image: Module._scan_image.bind(Module),
+            scan_image_rgba: Module._scan_image_rgba.bind(Module),
             create_buffer: Module._create_buffer.bind(Module),
             destroy_buffer: Module._destroy_buffer.bind(Module),
           };
@@ -325,6 +330,14 @@ export class BarcodeScanner {
           if (Module._destroy_scanner) {
             this.wasmApi.destroy_scanner = Module._destroy_scanner.bind(Module);
           }
+
+          // Pre-allocate a reusable WASM buffer for RGBA scan data.
+          // Dimensions are set during setupDOM() which runs before loadWasm().
+          if (this.offscreen) {
+            this.wasmBufferPtr = this.wasmApi.create_buffer(this.offscreen.width, this.offscreen.height);
+            if (this.wasmBufferPtr === 0) throw new Error('Failed to allocate WASM scan buffer');
+          }
+
           resolve();
         } catch (e) {
           reject(e);
@@ -472,10 +485,6 @@ export class BarcodeScanner {
     const w = this.offscreen.width;
     const h = this.offscreen.height;
 
-    // Cache HEAP8 reference for this tick — avoids repeated property chain
-    // lookups in the tight grayscale conversion loop (~170K iterations).
-    this.cachedHeap = Module.HEAP8;
-
     // Clear preview canvas once per tick so all three rows are fresh.
     if (this.previewCtx && this.previewCanvas) {
       this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
@@ -512,20 +521,14 @@ export class BarcodeScanner {
         this.previewCtx.drawImage(this.offscreen, 0, 0, w, h, 0, rowY, w, h);
       }
 
-      // Must allocate a fresh buffer each call: scan_image passes the pointer
-      // to zbar with zbar_image_free_data as cleanup, so zbar frees it when
-      // the image is destroyed. Reusing a pointer would be use-after-free.
-      const ptr = this.wasmApi.create_buffer(w, h);
-      if (ptr === 0) continue; // malloc failed (OOM) — skip this rotation
-
-      // Write grayscale directly into the WASM heap, avoiding an intermediate
-      // Uint8Array allocation and a separate HEAP8.set copy.
+      // Copy RGBA pixels into the pre-allocated WASM buffer; the C-side
+      // scan_image_rgba converts to Y800 grayscale in-place before scanning.
+      // The buffer is reused across calls — ZBar uses a no-op cleanup handler.
       const imageData = this.offCtx.getImageData(0, 0, w, h);
-      this.toGrayscaleIntoHeap(imageData.data, ptr);
+      Module.HEAPU8.set(imageData.data, this.wasmBufferPtr);
 
-      // scan_image triggers Module.processResult synchronously if a barcode is found.
-      // The buffer is freed internally by zbar — do not free again from JS.
-      this.wasmApi.scan_image(ptr, w, h);
+      // scan_image_rgba triggers Module.processResult synchronously if a barcode is found.
+      this.wasmApi.scan_image_rgba(this.wasmBufferPtr, w, h);
 
       // Draw angle label + detection highlight on the preview row.
       if (this.previewCtx) {
@@ -551,18 +554,6 @@ export class BarcodeScanner {
     }
 
     this.hadDetectionLastTick = this.detectedThisTick;
-  }
-
-  /**
-   * Convert RGBA pixel data to grayscale (BT.601 luma) and write directly
-   * into the WASM heap at the given pointer. Uses the per-tick cached HEAP8
-   * reference to avoid repeated property lookups in the tight loop.
-   */
-  private toGrayscaleIntoHeap(rgba: Uint8ClampedArray, heapPtr: number): void {
-    const heap = this.cachedHeap!;
-    for (let i = 0, j = 0; i < rgba.length; i += 4, j++) {
-      heap[heapPtr + j] = (rgba[i] * 66 + rgba[i + 1] * 129 + rgba[i + 2] * 25 + 4096) >> 8;
-    }
   }
 
   // ── Drawing ─────────────────────────────────────────────────────

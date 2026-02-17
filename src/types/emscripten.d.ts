@@ -24,12 +24,14 @@ interface EmscriptenModule {
    * cwrap's argument validation overhead on every call.
    */
   _scan_image(ptr: number, width: number, height: number): number;
+  _scan_image_rgba(ptr: number, width: number, height: number): number;
   _create_buffer(width: number, height: number): number;
   _destroy_buffer(ptr: number): void;
   _destroy_scanner?: () => void;
 
   /** Direct views into WASM linear memory. */
   HEAP8: Int8Array;
+  HEAPU8: Uint8Array;
   HEAP32: Int32Array;
 
   /** Decode a UTF-8 string starting at the given byte offset in WASM memory. */

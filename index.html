@@ -5,7 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Barcode Scanner (WASM)</title>
-  <!-- Emscripten glue loaded as a classic script so Module lands on window -->
+  <!-- Pre-define Module so the closure-compiled glue binds to this object -->
+  <script>var Module = {};</script>
   <script src="/a.out.js"></script>
   <style>
     body {

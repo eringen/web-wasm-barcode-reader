@@ -98,17 +98,18 @@ Camera frame
 
 ### WASM Bridge
 
-The scanner communicates with ZBar through three C functions exposed via Emscripten:
+The scanner communicates with ZBar through C functions exposed via Emscripten:
 
 | C function | Purpose |
 |---|---|
-| `create_buffer(w, h)` | `malloc` a buffer on the WASM heap for image data |
-| `scan_image(ptr, w, h)` | Run ZBar on grayscale pixels at `ptr`. Calls `js_output_result` on hit. |
-| `destroy_buffer(ptr)` | `free` a buffer (unused — ZBar frees it internally via `zbar_image_free_data`) |
+| `create_buffer(w, h)` | Return a reusable buffer on the WASM heap for RGBA image data (grows if needed, never shrinks) |
+| `scan_image_rgba(ptr, w, h)` | Convert RGBA→Y800 in-place and run ZBar. Calls `js_output_result` on hit. |
+| `destroy_buffer(ptr)` | Free the reusable scan buffer. Call once when done scanning. |
+| `destroy_scanner()` | Tear down the ZBar image scanner instance. |
 
 `library.js` defines `js_output_result`, which reads symbol name, data, and polygon coordinates from the WASM heap and forwards them to `Module.processResult` — a callback set by the `BarcodeScanner` class.
 
-> **Important:** `scan_image` registers the buffer with `zbar_image_free_data` as the cleanup handler, so ZBar frees the buffer when the image is destroyed. A fresh buffer must be allocated for every `scan_image` call — reusing a pointer is use-after-free.
+> **Note:** The scan buffer is pre-allocated once and reused across all scan calls. ZBar uses a no-op cleanup handler so it doesn't free the buffer — lifetime is managed by `create_buffer`/`destroy_buffer`.
 
 ## Usage as npm Package
 
@@ -130,11 +131,12 @@ Or with a bundler, add a copy step to your build pipeline.
 Add a `<script>` tag in your HTML **before** your app bundle:
 
 ```html
+<script>var Module = {};</script>
 <script src="/a.out.js"></script>
 <script type="module" src="/your-app.js"></script>
 ```
 
-> **Important:** `a.out.js` must be loaded as a classic (non-module) script because it sets up the global `Module` object that the scanner depends on.
+> **Important:** You must define `var Module = {}` before loading `a.out.js`. The closure-compiled glue script binds to this pre-existing object so the scanner can access the WASM exports via the global `Module`.
 
 ### 3. Import and use
 
@@ -236,15 +238,18 @@ The `public/a.out.js` and `public/a.out.wasm` files are pre-compiled. To rebuild
 
 ```sh
 emcc scan.c \
+  -O3 -flto \
   -s WASM=1 \
-  -s EXPORTED_FUNCTIONS='["_scan_image", "_create_buffer", "_destroy_buffer"]' \
-  -s EXPORTED_RUNTIME_METHODS='["cwrap", "UTF8ToString"]' \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s EXPORTED_FUNCTIONS='["_scan_image", "_scan_image_rgba", "_create_buffer", "_destroy_buffer", "_destroy_scanner"]' \
+  -s EXPORTED_RUNTIME_METHODS='["UTF8ToString", "HEAP8", "HEAPU8", "HEAP32"]' \
   --js-library library.js \
-  -lzbar \
+  -I/path/to/zbar/include \
+  /path/to/libzbar.a \
   -o public/a.out.js
 ```
 
-The exact flags may vary depending on your Emscripten version and ZBar installation path.
+The exact flags may vary depending on your Emscripten version and ZBar installation path. ZBar must be cross-compiled for WASM with `emcc` before linking.
 
 ## Scripts
 
