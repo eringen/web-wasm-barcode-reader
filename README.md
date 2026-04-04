@@ -14,6 +14,8 @@ NPM: [https://www.npmjs.com/package/web-wasm-barcode-reader](https://www.npmjs.c
 npm i web-wasm-barcode-reader
 ```
 
+> **React users:** There's an official wrapper — [web-wasm-barcode-reader-react](https://www.npmjs.com/package/web-wasm-barcode-reader-react) — with a drop-in `<BarcodeScannerReact />` component.
+
 ## Features
 
 - **Works out of the box** — no manual WASM file copying or script tag setup required

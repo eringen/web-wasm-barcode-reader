@@ -1,23 +1,58 @@
-# OS files
-.DS_Store
-Thumbs.db
+# Dependencies
+node_modules/
 
-# Editor / IDE
-.vscode/
+# Build output
+dist/
+
+# Packaged releases
+*.tgz
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
 *~
 
-# Node
-node_modules/
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Build artifacts
+# Testing
+coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional npm cache
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Vite
+.vite/
+
+# Emscripten build artifacts (if recompiling WASM)
 *.o
+*.a
 *.bc
-dist/
-
-# Environment
-.env
-.env.*
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
