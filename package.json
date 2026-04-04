@@ -1,6 +1,6 @@
 {
   "name": "web-wasm-barcode-reader",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Barcode scanner powered by ZBar compiled to WebAssembly",
   "keywords": ["barcode", "scanner", "wasm", "webassembly", "zbar", "qr-code"],
   "license": "MIT",
@@ -22,6 +22,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/web-wasm-barcode-reader.js",
       "require": "./dist/web-wasm-barcode-reader.umd.cjs"
+    },
+    "./vite-plugin": {
+      "types": "./dist/vite-plugin.d.ts",
+      "import": "./dist/vite-plugin.js"
     }
   },
   "files": [
@@ -34,10 +38,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:lib": "vite build --config vite.lib.config.ts && tsc --project tsconfig.lib.json",
+    "build:plugin": "vite build --config vite.plugin.config.ts && tsc --project tsconfig.plugin.json",
+    "build:all": "rm -rf dist && npm run build:lib && npm run build:plugin",
     "preview": "vite preview",
-    "prepublishOnly": "npm run build:lib"
+    "prepublishOnly": "npm run build:all"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0"
   }

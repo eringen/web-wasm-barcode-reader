@@ -44,6 +44,13 @@ export interface ScannerOptions {
    * of more GPU scaling work. Default: 1.5.
    */
   resolutionScale?: number;
+  /**
+   * Base URL/path to the WASM assets (a.out.js and a.out.wasm).
+   * When using the npm package, this defaults to the package's public/ directory
+   * served from your dev server or CDN. Set this if you host the assets elsewhere.
+   * Example: '/assets/wasm/' or 'https://cdn.example.com/wasm-barcode-reader/'
+   */
+  wasmPath?: string;
 }
 
 export interface ScanResult {
@@ -89,6 +96,7 @@ export class BarcodeScanner {
   private readonly regionWidth: number;
   private readonly regionHeight: number;
   private readonly resolutionScale: number;
+  private readonly wasmPath: string;
 
   // Runtime state
   private _isRunning = false;
@@ -141,6 +149,7 @@ export class BarcodeScanner {
     this.regionHeight = options.scanRegion?.height ?? 0.242;
     this.resolutionScale = options.resolutionScale ?? 1.5;
     this.previewCanvas = options.previewCanvas ?? null;
+    this.wasmPath = options.wasmPath ?? '';
   }
 
   // ── Public lifecycle ────────────────────────────────────────────
@@ -300,60 +309,97 @@ export class BarcodeScanner {
   // ── WASM loading ────────────────────────────────────────────────
 
   /**
-   * Wait for the Emscripten Module to finish initializing.
-   * The script is loaded via a classic <script> tag in index.html,
-   * so by the time start() runs it may already be ready.
+   * Resolve the base URL for WASM assets.
+   * Tries in order: user-provided wasmPath, then Vite dev server plugin path, then npm package path.
    */
-  private loadWasm(): Promise<void> {
+  private resolveWasmBaseUrl(): string {
+    if (this.wasmPath) return this.wasmPath;
+    // When running under Vite dev server with wasmBarcodeReaderPlugin(),
+    // the plugin serves files at /@wasm-barcode-reader/
+    return '/@wasm-barcode-reader/';
+  }
+
+  /**
+   * Dynamically load the Emscripten glue script if not already present.
+   * Sets Module.locateFile so the .wasm binary is fetched from the correct path.
+   */
+  private ensureWasmScriptLoaded(): Promise<void> {
+    if (typeof Module !== 'undefined') return Promise.resolve();
+
+    const wasmBaseUrl = this.resolveWasmBaseUrl();
+    if (!wasmBaseUrl) {
+      return Promise.reject(new Error(
+        'WASM assets not found. Set the wasmPath option to the URL where a.out.js and a.out.wasm are served.',
+      ));
+    }
+
     return new Promise<void>((resolve, reject) => {
-      if (typeof Module === 'undefined') {
-        reject(new Error(
-          'WASM Module not loaded. Load the Emscripten glue script (a.out.js) before calling start().',
-        ));
-        return;
-      }
-
-      const timeout = setTimeout(() => reject(new Error('WASM load timeout')), 15_000);
-
-      const init = (): void => {
-        clearTimeout(timeout);
-        try {
-          if (!Module._scan_image_rgba) throw new Error('WASM exports not available after runtime init');
-
-          // Bind direct WASM exports — avoids cwrap's argument validation overhead.
-          this.wasmApi = {
-            scan_image_rgba: Module._scan_image_rgba.bind(Module),
-            create_buffer: Module._create_buffer.bind(Module),
-            destroy_buffer: Module._destroy_buffer.bind(Module),
-          };
-          // destroy_scanner is only available after recompiling the WASM binary.
-          if (Module._destroy_scanner) {
-            this.wasmApi.destroy_scanner = Module._destroy_scanner.bind(Module);
-          }
-
-          // Pre-allocate a reusable WASM buffer for RGBA scan data.
-          // Dimensions are set during setupDOM() which runs before loadWasm().
-          if (this.offscreen) {
-            this.wasmBufferPtr = this.wasmApi.create_buffer(this.offscreen.width, this.offscreen.height);
-            if (this.wasmBufferPtr === 0) throw new Error('Failed to allocate WASM scan buffer');
-          }
-
-          resolve();
-        } catch (e) {
-          reject(e);
-        }
+      // Define Module before loading the glue script so locateFile works
+      (globalThis as Record<string, unknown>).Module = {
+        locateFile: (path: string, _scriptDirectory: string): string => {
+          return wasmBaseUrl + path;
+        },
       };
 
-      // If runtime already initialized (e.g. Module loaded before our code ran)
-      if (Module.calledRun) {
-        init();
-      } else {
-        const prev = Module.onRuntimeInitialized;
-        Module.onRuntimeInitialized = () => {
-          prev?.();
-          init();
+      const script = document.createElement('script');
+      script.src = wasmBaseUrl + 'a.out.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(
+        `Failed to load WASM glue script from ${wasmBaseUrl}a.out.js. Set wasmPath option if assets are hosted elsewhere.`,
+      ));
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * Wait for the Emscripten Module to finish initializing.
+   * Auto-loads the glue script if not already present.
+   */
+  private loadWasm(): Promise<void> {
+    return this.ensureWasmScriptLoaded().then(() => {
+      return new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('WASM load timeout')), 15_000);
+
+        const init = (): void => {
+          clearTimeout(timeout);
+          try {
+            if (!Module._scan_image_rgba) throw new Error('WASM exports not available after runtime init');
+
+            // Bind direct WASM exports — avoids cwrap's argument validation overhead.
+            this.wasmApi = {
+              scan_image_rgba: Module._scan_image_rgba.bind(Module),
+              create_buffer: Module._create_buffer.bind(Module),
+              destroy_buffer: Module._destroy_buffer.bind(Module),
+            };
+            // destroy_scanner is only available after recompiling the WASM binary.
+            if (Module._destroy_scanner) {
+              this.wasmApi.destroy_scanner = Module._destroy_scanner.bind(Module);
+            }
+
+            // Pre-allocate a reusable WASM buffer for RGBA scan data.
+            // Dimensions are set during setupDOM() which runs before loadWasm().
+            if (this.offscreen) {
+              this.wasmBufferPtr = this.wasmApi.create_buffer(this.offscreen.width, this.offscreen.height);
+              if (this.wasmBufferPtr === 0) throw new Error('Failed to allocate WASM scan buffer');
+            }
+
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
         };
-      }
+
+        // If runtime already initialized (e.g. Module loaded before our code ran)
+        if (Module.calledRun) {
+          init();
+        } else {
+          const prev = Module.onRuntimeInitialized;
+          Module.onRuntimeInitialized = () => {
+            prev?.();
+            init();
+          };
+        }
+      });
     });
   }
 

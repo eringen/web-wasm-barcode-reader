@@ -10,6 +10,6 @@ export default defineConfig({
       fileName: 'web-wasm-barcode-reader',
     },
     outDir: 'dist',
-    emptyOutDir: true,
+    emptyOutDir: false,
   },
 });
